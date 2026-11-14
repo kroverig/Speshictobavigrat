@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Класс</title>
+<style>body{font-family:sans-serif;background:#222;color:#fff;text-align:center;padding:2em}
+input,button{font-size:1.2em;padding:.6em;margin:.5em;border-radius:8px;border:none}
+button{background:#4caf50;color:#fff}</style></head>
+<body>
+<h2>Вход в класс</h2>
+<input id="name" placeholder="Твоё имя"><br>
+<button onclick="go()">Войти учеником</button>
+<script>
+function go(){
+  const n=document.getElementById('name').value;
+  location.href='/player.html?name='+encodeURIComponent(n);
+}
+</script>
+</body></html>
