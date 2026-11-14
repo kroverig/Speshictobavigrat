@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Ученик</title>
+<style>
+body{margin:0;overflow:hidden;font-family:sans-serif;background:#111;color:#fff}
+#phaseBar{position:fixed;top:0;left:0;right:0;padding:6px 10px;background:rgba(0,0,0,.75);display:flex;gap:12px;align-items:center;z-index:15;font-size:14px;flex-wrap:wrap}
+#phaseName{font-weight:bold}
+#timer{font-size:1.3em;font-weight:bold;color:#ff0}
+#connStatus{font-size:12px;padding:2px 8px;border-radius:6px;background:#444}
+#connStatus.ok{background:#2a7d2a}
+#connStatus.bad{background:#a33}
+#prepTools{display:none;gap:6px;align-items:center;flex:1;flex-wrap:wrap}
+#prepTools input[type=color]{width:34px;height:34px;border:none;background:none}
+#prepTools input[type=text]{flex:1;min-width:100px;padding:4px;border-radius:6px;border:none;font-size:13px}
+#prepTools button{padding:4px 8px;border-radius:6px;border:none;background:#ffa500;color:#000;font-weight:bold;font-size:12px}
+#lobbyUI{position:fixed;top:60px;left:10px;right:10px;z-index:15;display:none;flex-direction:column;gap:10px;pointer-events:none}
+#readyList{background:rgba(0,0,0,.75);padding:12px;border-radius:12px;pointer-events:auto;font-size:15px;line-height:1.6}
+#readyBtn{pointer-events:auto;padding:16px;font-size:1.2em;font-weight:bold;border:none;border-radius:12px;background:#4caf50;color:#fff;transition:background .2s}
+#readyBtn.cancel{background:#ffa500;color:#000}
+#question{position:fixed;top:44px;left:0;right:0;padding:6px;background:rgba(0,0,0,.7);text-align:center;z-index:10;font-size:14px;display:none}
+.ans{display:inline-block;margin:4px;padding:6px 14px;background:#333;border-radius:10px;font-size:1.5em;cursor:pointer}
+#toast{position:fixed;top:45%;left:0;right:0;text-align:center;font-size:1.8em;display:none;z-index:20;text-shadow:0 0 8px #000}
+#hintPopup{position:fixed;top:38%;left:8%;right:8%;padding:18px;background:rgba(255,240,150,.95);color:#000;border-radius:16px;text-align:center;font-size:1.3em;z-index:25;display:none;box-shadow:0 0 30px rgba(0,0,0,.6)}
+#hands{position:fixed;bottom:10px;left:10px;right:10px;display:none;justify-content:space-between;z-index:8}
+.hand{width:64px;height:64px;background:rgba(255,255,255,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.6em;border:2px solid #555}
+.hand.filled{border-color:#4caf50;background:rgba(76,175,80,.3)}
+.hand.hint{border-color:#ffd700;background:rgba(255,215,0,.25)}
+#inv{position:fixed;bottom:84px;left:10px;right:10px;display:none;gap:8px;justify-content:center;z-index:8}
+.slot{padding:8px 14px;background:#333;border-radius:10px;font-size:1.2em;cursor:pointer}
+#tools{position:fixed;top:80px;right:10px;display:none;flex-direction:column;gap:6px;z-index:11}
+#tools button{width:48px;height:48px;font-size:1.3em;border-radius:10px;border:none;background:#444;color:#fff}
+#tools button.active{background:#4caf50}
+#noiseBar{position:fixed;top:80px;left:10px;width:100px;height:8px;background:#333;border-radius:4px;overflow:hidden;z-index:11;display:none}
+#noiseFill{height:100%;width:0%;background:#4caf50;transition:width .1s}
+#aggrBar{position:fixed;top:80px;left:120px;width:100px;height:8px;background:#333;border-radius:4px;overflow:hidden;z-index:11;display:none}
+#aggrFill{height:100%;width:0%;background:#4caf50;transition:width .2s}
+#drawCanvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;display:none}
+#drawCanvas.active{pointer-events:auto;cursor:crosshair}
+#useHintBtn{position:fixed;bottom:150px;left:50%;transform:translateX(-50%);padding:10px 20px;background:#ffd700;color:#000;border:none;border-radius:12px;font-size:1.05em;font-weight:bold;z-index:12;display:none}
+#sitBtn{position:fixed;bottom:150px;right:15px;width:56px;height:56px;border-radius:50%;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:1.4em;z-index:11;display:none}
+#errBox{position:fixed;top:0;left:0;right:0;background:#a00;color:#fff;padding:10px;z-index:9999;display:none;font-size:12px;white-space:pre-wrap;max-height:50vh;overflow:auto}
+</style></head>
+<body>
+<div id="errBox"></div>
+
+<div id="phaseBar">
+  <span id="phaseName">Лобби</span>
+  <span>⏳ <b id="timer">--</b>с</span>
+  <span id="connStatus">соединение...</span>
+  <div id="prepTools">
+    <input type="color" id="colorPicker" value="#00aaff" title="Цвет">
+    <input type="text" id="hintInput" placeholder="Подсказка (30)" maxlength="30">
+    <button id="writeHintBtn">✍️ на бумажку</button>
+  </div>
+</div>
+
+<div id="lobbyUI">
+  <div id="readyList"><b>Игроки:</b><br>загрузка...</div>
+  <button id="readyBtn">✅ Я готов</button>
+</div>
+
+<div id="question"></div>
+<div id="toast"></div>
+<div id="hintPopup"></div>
+<div id="noiseBar"><div id="noiseFill"></div></div>
+<div id="aggrBar"><div id="aggrFill"></div></div>
+<div id="tools">
+  <button id="toolPen" data-tool="pen">✏️</button>
+  <button id="toolMove" data-tool="move" class="active">✋</button>
+</div>
+<div id="hands">
+  <div class="hand" id="hand0" data-slot="0">✋</div>
+  <div class="hand" id="hand1" data-slot="1">✋</div>
+</div>
+<div id="inv">
+  <div class="slot" data-item="paper">📝 бумажка</div>
+  <div class="slot" data-item="pencil">✏️ карандаш</div>
+</div>
+<button id="useHintBtn">📖 Прочитать подсказку</button>
+<button id="sitBtn">🪑</button>
+<canvas id="drawCanvas"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script type="module">
+const errBox = document.getElementById('errBox');
+function showErr(msg){ errBox.style.display='block'; errBox.textContent += msg + '\n'; }
+window.addEventListener('error', e => showErr('ERROR: ' + (e.message||e.error)));
+window.addEventListener('unhandledrejection', e => showErr('PROMISE: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
+
+let THREE;
+try {
+  THREE = await import('https://esm.sh/three@0.160.0');
+  if (THREE.default) THREE = THREE.default;
+} catch(e) {
+  showErr('Не загрузился three.js: ' + e.message);
+  throw e;
+}
+
+const name = new URLSearchParams(location.search).get('name') || 'Ученик';
+const socket = io();
+
+const canvas = document.getElementById('drawCanvas');
+const dctx = canvas.getContext('2d');
+canvas.width = innerWidth; canvas.height = innerHeight;
+
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, .1, 100);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  canvas.width = innerWidth; canvas.height = innerHeight;
+});
+
+const lobbyScene = new THREE.Scene();
+lobbyScene.background = new THREE.Color(0x2a1a3a);
+const lobbyFloor = new THREE.Mesh(new THREE.PlaneGeometry(15,15), new THREE.MeshBasicMaterial({color:0x553366}));
+lobbyFloor.rotation.x = -Math.PI/2; lobbyScene.add(lobbyFloor);
+function addWalls(scene, color, size=15, h=3) {
+  const mat = new THREE.MeshBasicMaterial({color});
+  const half = size/2;
+  for (const [x,z,rotY] of [[0,-half,0],[0,half,0],[-half,0,Math.PI/2],[half,0,Math.PI/2]]) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(size,h,.2), mat);
+    w.position.set(x,h/2,z); w.rotation.y = rotY; scene.add(w);
+  }
+}
+addWalls(lobbyScene, 0x443366);
+for (let i=0; i<3; i++) {
+  const s = new THREE.Mesh(new THREE.BoxGeometry(1.6,.5,.9), new THREE.MeshBasicMaterial({color:0x664444}));
+  s.position.set(-4+i*4, .25, 4); lobbyScene.add(s);
+}
+const doorSign = new THREE.Mesh(new THREE.BoxGeometry(2, 2.5, .15), new THREE.MeshBasicMaterial({color:0x887744}));
+doorSign.position.set(0, 1.25, -6); lobbyScene.add(doorSign);
+
+const classScene = new THREE.Scene();
+classScene.background = new THREE.Color(0x202030);
+const classFloor = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshBasicMaterial({color:0x336633}));
+classFloor.rotation.x = -Math.PI/2; classScene.add(classFloor);
+addWalls(classScene, 0x334433, 28, 4);
+for (let x=-6; x<=6; x+=3) for (let z=-4; z<=6; z+=3) {
+  const d = new THREE.Mesh(new THREE.BoxGeometry(1.4,.8,1), new THREE.MeshBasicMaterial({color:0x8b5a2b}));
+  d.position.set(x,.4,z); classScene.add(d);
+}
+const board = new THREE.Mesh(new THREE.BoxGeometry(8,4,.2), new THREE.MeshBasicMaterial({color:0x115511}));
+board.position.set(0,2.2,-12); classScene.add(board);
+const teacher = new THREE.Mesh(new THREE.CapsuleGeometry(.35,1,4,8), new THREE.MeshBasicMaterial({color:0xff3333}));
+teacher.position.set(0,.9,-10); classScene.add(teacher);
+
+let currentScene = lobbyScene;
+const otherMeshes = {};
+function switchScene(target) {
+  if (target === currentScene) return;
+  for (const id in otherMeshes) {
+    currentScene.remove(otherMeshes[id]);
+    target.add(otherMeshes[id]);
+  }
+  currentScene = target;
+}
+
+function worldToScreen(x, z){
+  const v = new THREE.Vector3(x, 0.02, z).project(camera);
+  return { x:(v.x*.5+.5)*canvas.width, y:(-v.y*.5+.5)*canvas.height };
+}
+function screenToWorld(sx, sy){
+  const ndc = new THREE.Vector2((sx/canvas.width)*2-1, -(sy/canvas.height)*2+1);
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(ndc, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+  const pt = new THREE.Vector3();
+  ray.ray.intersectPlane(plane, pt);
+  return { x: pt.x, z: pt.z };
+}
+const drawings = [];
+function redraw(){
+  dctx.clearRect(0,0,canvas.width,canvas.height);
+  if (phase === 'lobby') return;
+  for (const s of drawings) {
+    dctx.strokeStyle = s.color; dctx.lineWidth = 3; dctx.beginPath();
+    s.points.forEach((p,i)=>{
+      const sp = worldToScreen(p[0], p[1]);
+      if (i===0) dctx.moveTo(sp.x, sp.y); else dctx.lineTo(sp.x, sp.y);
+    });
+    dctx.stroke();
+  }
+}
+setInterval(redraw, 33);
+
+let tool = 'move', penColor = '#ff0';
+document.getElementById('toolPen').onclick = () => {
+  document.querySelectorAll('#tools button').forEach(x=>x.classList.remove('active'));
+  document.getElementById('toolPen').classList.add('active');
+  tool = 'pen'; canvas.classList.add('active');
+};
+document.getElementById('toolMove').onclick = () => {
+  document.querySelectorAll('#tools button').forEach(x=>x.classList.remove('active'));
+  document.getElementById('toolMove').classList.add('active');
+  tool = 'move'; canvas.classList.remove('active');
+};
+document.getElementById('toolPen').addEventListener('dblclick', ()=>{
+  penColor = '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
+  toast('Цвет: '+penColor);
+});
+let drawing = false, currentStroke = null;
+function startDraw(e){
+  if (tool !== 'pen') return;
+  const r = canvas.getBoundingClientRect();
+  drawing = true;
+  currentStroke = { id: Date.now()+'-'+Math.random(), color: penColor, points: [] };
+  addPoint((e.touches?e.touches[0].clientX:e.clientX)-r.left,
+           (e.touches?e.touches[0].clientY:e.clientY)-r.top);
+}
+function addPoint(sx,sy){
+  if (!currentStroke) return;
+  const w = screenToWorld(sx,sy);
+  currentStroke.points.push([w.x, w.z]);
+}
+function moveDraw(e){
+  if (!drawing) return;
+  const r = canvas.getBoundingClientRect();
+  addPoint((e.touches?e.touches[0].clientX:e.clientX)-r.left,
+           (e.touches?e.touches[0].clientY:e.clientY)-r.top);
+}
+function endDraw(){
+  if (!drawing) return;
+  drawing = false;
+  if (currentStroke && currentStroke.points.length > 1) {
+    drawings.push(currentStroke);
+    socket.emit('draw', currentStroke);
+  }
+  currentStroke = null;
+}
+canvas.addEventListener('mousedown', startDraw);
+canvas.addEventListener('mousemove', moveDraw);
+canvas.addEventListener('mouseup', endDraw);
+canvas.addEventListener('touchstart', e=>{e.preventDefault();startDraw(e);},{passive:false});
+canvas.addEventListener('touchmove', e=>{e.preventDefault();moveDraw(e);},{passive:false});
+canvas.addEventListener('touchend', e=>{e.preventDefault();endDraw();},{passive:false});
+
+let joy = {x:0,z:0};
+const j = document.createElement('div');
+j.style.cssText='position:fixed;bottom:150px;left:20px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.15);z-index:6';
+document.body.appendChild(j);
+let touching = false, st = {x:0,z:0};
+j.addEventListener('touchstart', e=>{touching=true; st={x:e.touches[0].clientX,z:e.touches[0].clientY};});
+j.addEventListener('touchmove', e=>{
+  if (!touching) return;
+  const t = e.touches[0];
+  joy.x = Math.max(-1,Math.min(1,(t.clientX-st.x)/40));
+  joy.z = Math.max(-1,Math.min(1,(t.clientY-st.z)/40));
+});
+j.addEventListener('touchend', ()=>{touching=false; joy={x:0,z:0};});
+
+let phase = 'lobby';
+let myColor = '#00aaff';
+let hands = [null, null];
+let sitting = false;
+let iAmReady = false;
+let micLevel = 0;
+const myPos = { x:0, z:0 };
+
+const ICONS = { paper:'📝', pencil:'✏️' };
+function renderHands(){
+  [0,1].forEach(i=>{
+    const el = document.getElementById('hand'+i);
+    const it = hands[i];
+    if (!it) { el.textContent = '✋'; el.classList.remove('filled','hint'); return; }
+    el.textContent = (it.type==='paper' && it.hint) ? '📝💡' : ICONS[it.type];
+    el.classList.add('filled');
+    el.classList.toggle('hint', it.type==='paper' && !!it.hint);
+  });
+  updateHintBtn();
+}
+function updateHintBtn(){
+  const btn = document.getElementById('useHintBtn');
+  const slot = hands.findIndex(h => h && h.type==='paper' && h.hint);
+  if (phase === 'exam' && slot !== -1) {
+    btn.style.display = 'block';
+    btn.onclick = () => {
+      socket.emit('useHint', { slot });
+      hands[slot] = null;
+      renderHands();
+    };
+  } else btn.style.display = 'none';
+}
+document.querySelectorAll('.slot').forEach(el=>{
+  el.onclick = () => {
+    if (phase !== 'prep' && phase !== 'exam') return;
+    const empty = hands.findIndex(h => !h);
+    if (empty === -1) return toast('Обе руки заняты');
+    const item = { type: el.dataset.item };
+    hands[empty] = item;
+    renderHands();
+    socket.emit('putItem', { slot: empty, item });
+  };
+});
+[0,1].forEach(slot=>{
+  document.getElementById('hand'+slot).onclick = () => {
+    if (!hands[slot]) return;
+    hands[slot] = null;
+    renderHands();
+    socket.emit('putItem', { slot, item: null });
+  };
+});
+
+document.getElementById('colorPicker').oninput = e => {
+  myColor = e.target.value;
+  socket.emit('customize', { color: myColor });
+};
+document.getElementById('writeHintBtn').onclick = () => {
+  if (phase !== 'prep') return toast('Только на подготовке');
+  const text = document.getElementById('hintInput').value.slice(0,30).trim();
+  if (!text) return toast('Напиши подсказку');
+  const slot = hands.findIndex(h => h && h.type==='paper');
+  if (slot === -1) return toast('Возьми бумажку в руку');
+  hands[slot].hint = text;
+  renderHands();
+  socket.emit('writeHint', { slot, hint: text });
+  toast('✍️ Записано');
+};
+
+document.getElementById('sitBtn').onclick = () => {
+  sitting = !sitting;
+  document.getElementById('sitBtn').textContent = sitting ? '🧍' : '🪑';
+};
+
+const readyBtn = document.getElementById('readyBtn');
+readyBtn.onclick = () => {
+  iAmReady = !iAmReady;
+  socket.emit('ready', iAmReady);
+  readyBtn.textContent = iAmReady ? '❌ Отменить готовность' : '✅ Я готов';
+  readyBtn.classList.toggle('cancel', iAmReady);
+};
+
+const connStatus = document.getElementById('connStatus');
+socket.on('connect', () => {
+  connStatus.textContent = '✅ онлайн';
+  connStatus.className = 'ok';
+  socket.emit('join', { name, color: myColor });
+});
+socket.on('disconnect', () => {
+  connStatus.textContent = '❌ нет связи';
+  connStatus.className = 'bad';
+});
+socket.on('connect_error', e => {
+  connStatus.textContent = '❌ ' + e.message;
+  connStatus.className = 'bad';
+});
+socket.on('state', s => {
+  phase = s.phase;
+  for (const d of s.drawings) drawings.push(d);
+  applyPhase();
+  if (s.question) showQuestion(s.question);
+  if (s.phase === 'prep' || s.phase === 'exam') { myPos.x = 0; myPos.z = 5; switchScene(classScene); }
+});
+socket.on('phase', p => {
+  phase = p;
+  if (p === 'prep' || p === 'exam') {
+    myPos.x = 0; myPos.z = 5;
+    switchScene(classScene);
+    iAmReady = false;
+    readyBtn.textContent = '✅ Я готов';
+    readyBtn.classList.remove('cancel');
+  }
+  applyPhase();
+});
+socket.on('prepTimer', left => { document.getElementById('timer').textContent = left; });
+socket.on('lobbyState', ls => {
+  const list = document.getElementById('readyList');
+  const arr = Object.values(ls.players);
+  if (arr.length === 0) { list.innerHTML = '<b>Игроки:</b><br>пока никого'; return; }
+  const readyCount = arr.filter(p => p.ready).length;
+  list.innerHTML = `<b>Игроки (${readyCount}/${arr.length} готовы):</b><br>` +
+    arr.map(p => `${p.ready ? '✅' : '⏳'} ${p.name}`).join('<br>');
+});
+socket.on('question', q => showQuestion(q));
+socket.on('hintRevealed', ({hint}) => {
+  const popup = document.getElementById('hintPopup');
+  popup.textContent = '📝 ' + hint;
+  popup.style.display = 'block';
+  setTimeout(()=>popup.style.display='none', 5000);
+});
+socket.on('answerResult', ({correct, score}) => {
+  toast(correct ? `✅ Верно! Очки: ${score}` : '❌ Неверно');
+});
+socket.on('draw', s => drawings.push(s));
+socket.on('players', ps => {
+  for (const id in ps) {
+    if (id === socket.id) continue;
+    if (!otherMeshes[id]) {
+      const m = new THREE.Mesh(new THREE.CapsuleGeometry(.3,.8,4,8),
+        new THREE.MeshBasicMaterial({color: ps[id].color || 0xffaa00}));
+      currentScene.add(m);
+      otherMeshes[id] = m;
+    }
+    otherMeshes[id].position.set(ps[id].x, .9, ps[id].z);
+    otherMeshes[id].material.color.set(ps[id].color || '#ffaa00');
+  }
+  for (const id in otherMeshes) {
+    if (!ps[id]) {
+      currentScene.remove(otherMeshes[id]);
+      delete otherMeshes[id];
+    }
+  }
+});
+socket.on('teacherPos', p => {
+  teacher.position.set(p.x,.9,p.z);
+  const f = document.getElementById('aggrFill');
+  if (!f) return;
+  f.style.width = (p.aggression|0)+'%';
+  f.style.background = p.aggression>70?'#f33':p.aggression>40?'#fa0':'#4caf50';
+});
+socket.on('hit', ({targetId, item, dmg}) => {
+  if (targetId === socket.id) toast(`💥 ${item}! -${dmg}`);
+});
+
+function applyPhase(){
+  document.getElementById('phaseName').textContent =
+    phase==='lobby' ? 'Лобби' : phase==='prep' ? 'Подготовка' : 'Экзамен';
+  document.getElementById('lobbyUI').style.display = phase==='lobby'?'flex':'none';
+  document.getElementById('prepTools').style.display = phase==='prep'?'flex':'none';
+  document.getElementById('question').style.display = phase==='exam'?'block':'none';
+  document.getElementById('hands').style.display = phase==='lobby'?'none':'flex';
+  document.getElementById('inv').style.display = phase==='lobby'?'none':'flex';
+  document.getElementById('tools').style.display = phase==='lobby'?'none':'flex';
+  document.getElementById('noiseBar').style.display = phase==='lobby'?'none':'block';
+  document.getElementById('aggrBar').style.display = phase==='exam'?'block':'none';
+  document.getElementById('sitBtn').style.display = phase==='exam'?'block':'none';
+  canvas.style.display = phase==='lobby'?'none':'block';
+  if (phase === 'lobby') document.getElementById('timer').textContent = '—';
+  updateHintBtn();
+}
+function showQuestion(q){
+  const qEl = document.getElementById('question');
+  qEl.innerHTML = '<div>'+q.q+'</div>';
+  q.answers.forEach((a,i)=>{
+    const b = document.createElement('span'); b.className='ans'; b.textContent=a.icon;
+    b.onclick = () => socket.emit('answer', i);
+    qEl.appendChild(b);
+  });
+}
+function toast(t){
+  const el = document.getElementById('toast');
+  el.textContent = t; el.style.display = 'block';
+  setTimeout(()=>el.style.display='none',1500);
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  const speed = sitting ? 0 : 0.07;
+  myPos.x += joy.x * speed;
+  myPos.z += joy.z * speed;
+  camera.position.set(myPos.x, 1.6, myPos.z);
+  camera.lookAt(myPos.x, 1.6, myPos.z - 1);
+  socket.emit('move', { x: myPos.x, z: myPos.z, sitting });
+  socket.emit('noise', micLevel);
+  renderer.render(currentScene, camera);
+}
+loop();
+
+try {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio:true })
+      .then(stream => {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createMediaStreamSource(stream);
+        const an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an);
+        const data = new Uint8Array(an.fftSize);
+        setInterval(() => {
+          an.getByteTimeDomainData(data);
+          let s = 0; for (const v of data) { const d=(v-128)/128; s+=d*d; }
+          micLevel = Math.min(1, Math.sqrt(s/data.length)*4);
+          const f = document.getElementById('noiseFill');
+          if (!f) return;
+          f.style.width = (micLevel*100|0)+'%';
+          f.style.background = micLevel>0.4?'#f33':micLevel>0.2?'#fa0':'#4caf50';
+        }, 150);
+      })
+      .catch(err => console.warn('mic denied:', err.message));
+  } else {
+    document.getElementById('noiseFill').style.background = '#666';
+  }
+} catch(e) { console.warn('mic:', e); }
+</script>
+</body></html>
